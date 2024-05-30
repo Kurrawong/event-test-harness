@@ -5,7 +5,7 @@ import os
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from msal import ConfidentialClientApplication
 from azure.eventhub import EventHubProducerClient, EventData
-from confluent_kafka import Producer
+#from confluent_kafka import Producer
 import json
 
 # Load environment variables from .env file
@@ -25,6 +25,9 @@ client_id = os.getenv("MSAL_CLIENT_ID")
 authority = os.getenv("MSAL_AUTHORITY")
 client_secret = os.getenv("MSAL_CLIENT_SECRET")
 sparql_query = "CONSTRUCT WHERE {?s ?p ?o} LIMIT 10"
+sparql_content_type = "text/ttl"
+
+
 import requests
 
 app = FastAPI()
@@ -93,7 +96,7 @@ form_template = """
                             <select name="event_broker_type">
                                 <option value="AzureServiceBus" {{ "selected" if event_broker_type == "AzureServiceBus" else "" }}>Azure Service Bus</option>
                                 <option value="EventHub" {{ "selected" if event_broker_type == "EventHub" else "" }}>Event Hub</option>
-                                <option value="Kafka" {{ "selected" if event_broker_type == "Kafka" else "" }}>Kafka</option>
+                                <!-- <option value="Kafka" {{ "selected" if event_broker_type == "Kafka" else "" }}>Kafka</option> -->
                             </select>
                         </div>
                     </div>
@@ -149,7 +152,7 @@ form_template = """
 async def show_form():
     return form_template.format(event_broker_type="", event_broker_topic=default_event_broker_topic,
                                 event_broker_endpoint=event_broker_endpoint, status_message="", subject="", message="",
-                                sparql_endpoint=sparql_endpoint, sparql_content_type="text/ttl", sparql_query=sparql_query, query_response="")
+                                sparql_endpoint=sparql_endpoint, sparql_content_type=sparql_content_type, sparql_query=sparql_query, query_response="")
 
 
 @app.post("/data", response_class=HTMLResponse)
@@ -226,24 +229,27 @@ async def submit_form(event_broker_type: str = Form(...), event_broker_endpoint:
         except Exception as e:
             status_message = f"Error sending message to Event Hub: {str(e)}"
 
-    elif event_broker_type == "Kafka":
-        try:
-            # Send message to Kafka
-            kafka_producer = Producer({"bootstrap.servers": event_broker_endpoint})
-            delivery_report = kafka_producer.produce(event_broker_topic,
-                                                     json.dumps({"message": message}).encode("utf-8"))
-            kafka_producer.flush()
-
-            if delivery_report.error() is None:
-                status_message = "Message sent successfully to Kafka"
-            else:
-                status_message = f"Error sending message to Kafka: {delivery_report.error()}"
-        except Exception as e:
-            status_message = f"Error sending message to Kafka: {str(e)}"
+    # elif event_broker_type == "Kafka":
+    #     try:
+    #         # Send message to Kafka
+    #         kafka_producer = Producer({"bootstrap.servers": event_broker_endpoint})
+    #         delivery_report = kafka_producer.produce(event_broker_topic,
+    #                                                  json.dumps({"message": message}).encode("utf-8"))
+    #         kafka_producer.flush()
+    #
+    #         if delivery_report.error() is None:
+    #             status_message = "Message sent successfully to Kafka"
+    #         else:
+    #             status_message = f"Error sending message to Kafka: {delivery_report.error()}"
+    #     except Exception as e:
+    #         status_message = f"Error sending message to Kafka: {str(e)}"
 
     # Reload the form with the submitted values and status message displayed
     return form_template.format(event_broker_type=event_broker_type, event_broker_topic=event_broker_topic,
-                                event_broker_endpoint=event_broker_endpoint, status_message=status_message)
+                                event_broker_endpoint=event_broker_endpoint, status_message=status_message,
+                                sparql_endpoint=sparql_endpoint, sparql_content_type=sparql_content_type,
+                                sparql_query=sparql_query, query_response=""
+                                )
 
 
 if __name__ == "__main__":
