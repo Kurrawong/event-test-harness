@@ -7,10 +7,23 @@ from msal import ConfidentialClientApplication
 from azure.eventhub import EventHubProducerClient, EventData
 #from confluent_kafka import Producer
 import json
+import requests
 
 # Load environment variables from .env file
 from dotenv import load_dotenv
 load_dotenv()
+
+
+def get_summary(**kwargs):
+    summary_parts = []
+
+    for var_name, var_value in kwargs.items():
+        if var_value:
+            value_str = str(var_value)
+            formatted_value = f"{value_str[:3]}...{value_str[-3:]}"
+            summary_parts.append(f"{var_name} = {formatted_value}")
+
+    return ", ".join(summary_parts)
 
 # Get environment variables
 default_event_broker_topic = os.getenv("EVENT_BROKER_TOPIC")
@@ -27,8 +40,13 @@ client_secret = os.getenv("MSAL_CLIENT_SECRET")
 sparql_query = "CONSTRUCT WHERE {?s ?p ?o} LIMIT 10"
 sparql_content_type = "text/ttl"
 
-
-import requests
+summary = f"AUTH_MODE={auth_mode}, " + get_summary(
+    SAS_TOKEN=sas_token,
+    MS_TENANT_ID=tenant_id,
+    MSAL_CLIENT_ID=client_id,
+    MSAL_AUTHORITY=authority,
+    MSAL_CLIENT_SECRET=client_secret
+)
 
 app = FastAPI()
 
@@ -43,7 +61,7 @@ form_template = """
     <section class="section">
         <h1 class="title">Event Test Harness</h1>
         <p>
-            Use the test harness to test you can read from a SPARQL endpoint, and push a message to the topic of an event broker.
+            Use the test harness to test reading from a SPARQL endpoint and to push a message to an event broker topic.
         </p>
         <br />
         <div class="columns">
@@ -61,8 +79,8 @@ form_template = """
                     <div class="control">
                         <div class="select">
                             <select name="sparql_content_type">
-                                <option value="text/turtle" {{ "selected" if event_broker_type == "text/turtle" else "" }}>Turtle</option>
-                                <option value="application/json" {{ "selected" if event_broker_type == "application/json" else "" }}>JSON</option>
+                                <option value="text/turtle" {{ "selected" if sparql_content_type == "text/turtle" else "" }}>Turtle</option>
+                                <option value="application/json" {{ "selected" if sparql_content_type == "application/json" else "" }}>JSON</option>
                             </select>
                         </div>
                     </div>
@@ -87,7 +105,7 @@ form_template = """
                 </div>
             </form>
             <form class="container column is-half" action="/event" method="POST">
-                <h1 class="subtitle"><b>Test Event Broker Configuration</b></h1>
+                <h1 class="subtitle" title="{summary}"><b>Test Event Broker Configuration</b></h1>
                 <hr />
                 <div class="field">
                     <label class="label">Event Broker Type</label>
@@ -150,7 +168,7 @@ form_template = """
 
 @app.get("/", response_class=HTMLResponse)
 async def show_form():
-    return form_template.format(event_broker_type="", event_broker_topic=default_event_broker_topic,
+    return form_template.format(summary=summary, event_broker_type="", event_broker_topic=default_event_broker_topic,
                                 event_broker_endpoint=event_broker_endpoint, status_message="", subject="", message="",
                                 sparql_endpoint=sparql_endpoint, sparql_content_type=sparql_content_type, sparql_query=sparql_query, query_response="")
 
@@ -169,7 +187,7 @@ async def sparql_query_endpoint(sparql_endpoint: str = Form(...), sparql_content
     except Exception as e:
         query_response = f"Error performing SPARQL query: {str(e)}"
 
-    return form_template.format(event_broker_type="", event_broker_topic=default_event_broker_topic,
+    return form_template.format(summary=summary, event_broker_type="", event_broker_topic=default_event_broker_topic,
                                 event_broker_endpoint=event_broker_endpoint, status_message="", subject="", message="",
                                 sparql_endpoint=sparql_endpoint, sparql_content_type=sparql_content_type,
                                 sparql_query=sparql_query, query_response=query_response)
@@ -245,7 +263,7 @@ async def submit_form(event_broker_type: str = Form(...), event_broker_endpoint:
     #         status_message = f"Error sending message to Kafka: {str(e)}"
 
     # Reload the form with the submitted values and status message displayed
-    return form_template.format(event_broker_type=event_broker_type, event_broker_topic=event_broker_topic,
+    return form_template.format(summary=summary, event_broker_type=event_broker_type, event_broker_topic=event_broker_topic,
                                 event_broker_endpoint=event_broker_endpoint, status_message=status_message,
                                 sparql_endpoint=sparql_endpoint, sparql_content_type=sparql_content_type,
                                 sparql_query=sparql_query, query_response=""
