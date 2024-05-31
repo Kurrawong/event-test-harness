@@ -217,8 +217,9 @@ async def submit_form(event_broker_type: str = Form(...), event_broker_endpoint:
             elif auth_mode == "shared_access_key":
                 # Connect to Azure Service Bus using Shared Access Key
                 servicebus_client = ServiceBusClient.from_connection_string(
-                    f"Endpoint={event_broker_endpoint};SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey={sas_token}"
+                    f"{sas_token}"
                 )
+                # Endpoint={event_broker_endpoint};SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey={sas_token}...
             else:
                 raise ValueError("Invalid auth mode specified")
 
