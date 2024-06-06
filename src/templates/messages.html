@@ -1,0 +1,18 @@
+<table class="table">
+  <thead>
+    <tr>
+      <th>sequence no.</th>
+      <th>subject</th>
+      <th>body</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for message in messages %}
+    <tr>
+      <td>{{ message.sequence_number }}</td>
+      <td>{{ message.subject }}</td>
+      <td>{{ message.body.__next__().decode() }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
