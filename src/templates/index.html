@@ -1,195 +1,137 @@
 <!doctype html>
 <html>
   <head>
-    <title>Event Messaging Test Harness</title>
+    <title>Event Consumer Test Harness</title>
     <script src="https://cdn.jsdelivr.net/npm/htmx.org/dist/htmx.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css"
+    />
   </head>
-  <style>
-    .htmx-request,
-    .htmx-request:after {
-      box-sizing: border-box;
-    }
-    .htmx-request {
-      display: inline-block;
-      width: 40px;
-      height: 40px;
-    }
-    .htmx-request:after {
-      content: " ";
-      display: block;
-      width: 40;
-      height: 40;
-      margin: 8px;
-      border-radius: 50%;
-      border: 6.4px solid currentColor;
-      border-color: currentColor transparent currentColor transparent;
-      animation: htmx-request 1.2s linear infinite;
-    }
-    @keyframes htmx-request {
-      0% {
-        transform: rotate(0deg);
-      }
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-    input[type="text"],
-    textarea {
-      width: 90%;
-    }
-    textarea {
-      height: 80px;
-    }
-    details {
-      margin: 20px;
-    }
-  </style>
   <body>
-    <h1 class="title">Event Messaging Test Harness</h1>
-    <div>
-      <h2>Variables</h2>
-      <p>
-        <strong>broker_connection_str</strong>: {{ broker_connection_str }}
-      </p>
-    </div>
-    <form hx-post="/update" hx-target="#messages" hx-indicator="#spinner">
-      <details>
-        <summary>Sparql Update Query</summary>
-        <label for="sparql_update_endpoint">SPARQL endpoint</label>
+    <section class="section">
+      <div class="container">
+        <h1 class="title">Event Consumer Test Harness</h1>
+        <p class="block">
+          Use the consumer test harness to test reading a message from an event
+          broker topic and pushing it to an rdf delta server.
+        </p>
         <div>
-          <input
-            type="text"
-            name="sparql_update_endpoint"
-            value="{{ sparql_update_endpoint }}"
-          />
+          <h2 class="subtitle">Connection Strings</h2>
+          <p>
+            <strong>broker_connection_str</strong>: {{ broker_connection_str }}
+          </p>
         </div>
-        <label for="sparql_update_query">SPARQL query</label>
-        <div>
-          <textarea
-            name="sparql_update_query"
-            placeholder="Enter your SPARQL query"
-          >
-                        {%- include "example_insert_query.html" -%}
-                    </textarea
-          >
-        </div>
-        <button type="submit">Send Query</button>
-      </details>
-    </form>
-    <form hx-post="/query" hx-target="#messages" hx-indicator="#spinner">
-      <details>
-        <summary>Sparql Select Query</summary>
-        <label for="sparql_endpoint">SPARQL endpoint</label>
-        <div>
-          <input
-            type="text"
-            name="sparql_endpoint"
-            value="{{ sparql_endpoint }}"
-          />
-        </div>
-        <label for="sparql_query">SPARQL query</label>
-        <div>
-          <textarea name="sparql_query" placeholder="Enter your SPARQL query">
-                        {%- include "example_select_query.html" -%}
-                    </textarea
-          >
-        </div>
-        <button type="submit">Send Query</button>
-      </details>
-    </form>
-    <form hx-post="/produce" hx-target="#messages" hx-indicator="#spinner">
-      <details>
-        <summary>Event Broker</summary>
-        <label for="broker_endpoint">Broker Endpoint</label>
-        <div>
-          <input
-            type="text"
-            name="broker_endpoint"
-            value="{{ broker_endpoint }}"
-          />
-        </div>
-        <label for="broker_topic">Broker Topic</label>
-        <div>
-          <input type="text" name="broker_topic" value="{{ broker_topic }}" />
-        </div>
-        <label for="broker_subscribtion">Broker Subscription</label>
-        <div>
-          <input
-            type="text"
-            name="broker_subscription"
-            value="{{ broker_subscription }}"
-          />
-        </div>
-        <label for="subject">Subject</label>
-        <div>
-          <input class="input" type="text" name="subject" value="rdf" />
-        </div>
-        <label class="label">Body</label>
-        <div>
-          <textarea name="body">
-                        {%- include "example_raw_rdf.html" -%}
-                    </textarea
-          >
-        </div>
-        <button type="submit">Send message</button>
-        <button hx-post="/peek" hx-target="#messages" hx-indicator="#spinner">
-          Peek pending messages
-        </button>
-        <input type="number" name="peek_messages" value="1" />
-      </details>
-    </form>
-    <form hx-post="/log" hx-target="#messages" hx-indicator="#spinner">
-      <details>
-        <summary>RDF Delta Server</summary>
-        <label for="broker_endpoint">Broker Endpoint</label>
-        <div>
-          <input
-            type="text"
-            name="broker_endpoint"
-            value="{{ broker_endpoint }}"
-          />
-        </div>
-        <label for="broker_topic">Broker Topic</label>
-        <div>
-          <input type="text" name="broker_topic" value="{{ broker_topic }}" />
-        </div>
-        <label for="broker_subscribtion">Broker Subscription</label>
-        <div>
-          <input
-            type="text"
-            name="broker_subscription"
-            value="{{ broker_subscription }}"
-          />
-        </div>
-        <label for="rdfdelta_endpoint">RDF Delta Endpoint</label>
-        <div>
-          <input
-            type="text"
-            name="rdfdelta_endpoint"
-            value="{{ rdfdelta_endpoint }}"
-          />
-        </div>
-        <label for="rdfdelta_datasource">RDF delta datasource</label>
-        <div>
-          <input
-            type="text"
-            name="rdfdelta_datasource"
-            value="{{ rdfdelta_datasource }}"
-          />
-        </div>
-        <button
-          hx-post="/consume"
+        <form
+          hx-post="/log"
           hx-target="#messages"
           hx-indicator="#spinner"
+          class="box"
         >
-          Consume next message
-        </button>
-        <button type="submit">Get latest patch log</button>
-      </details>
-    </form>
-    <hr />
-    <p>Messages</p>
-    <div id="spinner"></div>
-    <div id="messages"></div>
+          <div class="field">
+            <label for="broker_endpoint" class="label">Broker Endpoint</label>
+            <div class="control">
+              <input
+                type="text"
+                name="broker_endpoint"
+                value="{{ broker_endpoint }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="broker_topic" class="label">Broker Topic</label>
+            <div class="control">
+              <input
+                type="text"
+                name="broker_topic"
+                value="{{ broker_topic }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="broker_subscription" class="label"
+              >Broker Subscription</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="broker_subscription"
+                value="{{ broker_subscription }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="rdfdelta_endpoint" class="label"
+              >RDF Delta Endpoint</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="rdfdelta_endpoint"
+                value="{{ rdfdelta_endpoint }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="rdfdelta_datasource" class="label"
+              >RDF delta datasource</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="rdfdelta_datasource"
+                value="{{ rdfdelta_datasource }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button
+                hx-post="/peek"
+                hx-target="#messages"
+                hx-indicator="#spinner"
+                class="button is-info"
+              >
+                Peek pending messages
+              </button>
+              <input
+                type="number"
+                name="peek_messages"
+                value="1"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <button
+                hx-post="/consume"
+                hx-target="#messages"
+                hx-indicator="#spinner"
+                class="button is-primary"
+              >
+                Consume next message
+              </button>
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button type="submit" class="button is-primary">
+                Get latest patch log
+              </button>
+            </div>
+          </div>
+        </form>
+        <hr />
+        <h2 class="subtitle">Messages</h2>
+        <div id="spinner"></div>
+        <div id="messages" class="block"></div>
+      </div>
+    </section>
   </body>
 </html>
