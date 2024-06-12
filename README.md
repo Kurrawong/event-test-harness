@@ -8,6 +8,7 @@
 
 Event broker test harness, to test messaging function and connectivity between
 applications. Current configuration includes two applications, a producer and a consumer.
+It also includes simple test images for rdf-delta-server and rdf-delta-fuseki-server
 
 **Producer**
 
@@ -34,9 +35,16 @@ poetry run python src/consumer.py
 
 ## Building the images
 
+> First you need to build and extract the rdf-delta-server and rdf-delta-fuseki-server jars and place
+them in the project root. Source code can be cloned from https://github.com/afs/rdf-delta. building
+requires maven and jdk17.
+
+
 ```bash
 docker build . -f Dockerfile-producer -t testharness-producer
 docker build . -f Dockerfile-consumer -t testharness-consumer
+docker build . -f Dockerfile-rdf-delta-server -t rdf-delta-server
+docker build . -f Dockerfile-rdf-delta-fuseki-server -t rdf-delta-fuseki-server
 ```
 
 ## Environment Variables

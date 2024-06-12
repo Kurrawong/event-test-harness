@@ -29,19 +29,19 @@ def get_summary(**kwargs):
 
 
 # Get environment variables
-broker_topic = os.getenv("BROKER_TOPIC")
-broker_name = os.getenv("BROKER_NAME")
-broker_endpoint = os.getenv("BROKER_ENDPOINT")
-
 sparql_endpoint = os.getenv("SPARQL_ENDPOINT")
-auth_mode = os.getenv("AUTH_MODE", "shared_access_key")
+sparql_query = "CONSTRUCT WHERE {?s ?p ?o} LIMIT 10"
+sparql_content_type = "text/ttl"
+
 broker_connection_str = os.getenv("BROKER_CONNECTION_STR")
+broker_endpoint = os.getenv("BROKER_ENDPOINT")
+broker_topic = os.getenv("BROKER_TOPIC")
+
+auth_mode = os.getenv("AUTH_MODE", "shared_access_key")
 tenant_id = os.getenv("MS_TENANT_ID")
 client_id = os.getenv("MSAL_CLIENT_ID")
 authority = os.getenv("MSAL_AUTHORITY")
 client_secret = os.getenv("MSAL_CLIENT_SECRET")
-sparql_query = "CONSTRUCT WHERE {?s ?p ?o} LIMIT 10"
-sparql_content_type = "text/ttl"
 
 summary = f"AUTH_MODE={auth_mode}, " + get_summary(
     broker_connection_str=broker_connection_str,
