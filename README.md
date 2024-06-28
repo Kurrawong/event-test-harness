@@ -1,70 +1,74 @@
 # event-test-harness
-Test harness to simulate update events to send to an event broker
 
-From this test harness interface you can query data from a SPARQL endpoint and send an event to various event brokers, primarily for testing RDF update events.
+| product           | status    |
+| ----------------- | --------- |
+| Azure Service bus | supported |
+| Azure event hub   | planned   |
+| kafka             | planned   |
 
-## Testing a SPARQL endpoint
+Event broker test harness, to test messaging function and connectivity between
+applications. Current configuration includes two applications, a producer and a consumer.
+It also includes simple test images for rdf-delta-server and rdf-delta-fuseki-server
 
-This test harness includes a simple test interface to check connectivity to a SPARQL endpoint to receive some RDF data. The primary intended use case for the event test harness is to pass through a patch-log update event where an RDF delta server will process the update. 
+**Producer**
 
-## Test sending an event
+Test harness for:
 
-This test harness has been tested with Azure Service Bus, and in future will support Azure Event Hub and Kafka.
+- sending sparql queries to a sparql endpoint
+- sending events to a message broker topic
+
+**Consumer**
+
+Test harness for:
+
+- viewing messages on an event broker topic
+- consuming messages from the topic (in the form of submitting rdf as a patch to an RDF delta server)
+- viewing the rdf delta server patch log
+
+## Running locally
+
+```bash
+poetry install
+poetry run python src/producer.py
+poetry run python src/consumer.py
+```
+
+## Building the images
+
+> First you need to build and extract the rdf-delta-server and rdf-delta-fuseki-server jars and place
+them in the project root. Source code can be cloned from https://github.com/afs/rdf-delta. building
+requires maven and jdk17.
+
+
+```bash
+docker build . -f Dockerfile-producer -t testharness-producer
+docker build . -f Dockerfile-consumer -t testharness-consumer
+docker build . -f Dockerfile-rdf-delta-server -t rdf-delta-server
+docker build . -f Dockerfile-rdf-delta-fuseki-server -t rdf-delta-fuseki-server
+```
 
 ## Environment Variables
 
-### SPARQL configuration
+The following environment variables are required:
 
-|Env variable| Value                                   | Description           |
-|------------|-----------------------------------------|-----------------------|
-|SPARQL_ENDPOINT| e.g., https://query.wikidata.org/sparql | SPARQL endpoint to query
+- `BROKER_CONNECTION_STR`: (the azure servicebus connection string to use)
 
-### Azure Service Bus Environment Variables
+The rest of the environment variables are optional and can be set in the UI after starting the application.
 
-|Env variable| Value                  | Description           |
-|------------|------------------------|-----------------------|
-|EVENT_BROKER_TYPE| AzureServiceBus        | Uses the Azure Service Bus (ASB) adapter |
-|EVENT_BROKER_TOPIC| <topic-name> | Name of the ASB topic |
-|EVENT_BROKER_ENDPOINT| e.g. sb://<name-space>.servicebus.windows.net/| ASB endpoint URL| 
-|EVENT_BROKER_NAME|<name-space>|Namespace provided when setting up ASB|
-
-### Azure Auth Environment Settings
-
-|Env variable| Value                   | Description           |
-|------------|-------------------------|-----------------------|
-|AUTH_MODE| shared_access_key, msal | The auth mode to use|
-|MS_TENANT_ID|e.g., xxxxx-xxx-xxx-xxx-xxxxx|From Azure portal|
-
-### SAS Token
-|Env variable| Value                                             | Description                           |
-|------------|---------------------------------------------------|---------------------------------------|
-|AUTH_MODE| shared_access_key                                 | Use a SAS token                       |
-|SAS_TOKEN| <token>, e.g. Endpoint=...;...SharedAccessKey=... | Connection string including the token |
-
-
-### MSAL
-
-| Env variable       | Value                | Description             |
-|--------------------|----------------------|-------------------------|
-| AUTH_MODE          | msal                 | Use MSAL                |
-| MSAL_CLIENT_ID     | <your_client_id>     | Your MSAL client id     |
-| MSAL_AUTHORITY     | <your_authority_url> | Your MSAL authority url |
-| MSAL_CLIENT_SECRET | <your_client_secret> | Your MSAL client secret |
-
-
-## Example environment settings
-
-1. SPARQL endpoint, Azure Service Bus using a SAS Token
-
-```
-SPARQL_ENDPOINT=https://query.wikidata.org/sparql
-
-EVENT_BROKER_TYPE=AzureServiceBus
-EVENT_BROKER_TOPIC=test-topic
-EVENT_BROKER_ENDPOINT=sb://testbus.servicebus.windows.net/
-EVENT_BROKER_NAME=testbus
-
-AUTH_MODE=shared_access_key
-SAS_TOKEN=Endpoint=sb://testbus.servicebus.windows.net/;SharedAccessKeyName=test-key;SharedAccessKey=aaaAAA/bbbEEE/cccCCC+dddDDD=
-MS_TENANT_ID=11111111=aaaa-222-3333-4444444444
-
+| Env variable          | Value                                             | Description                              |
+| --------------------- | ------------------------------------------------- | ---------------------------------------- |
+| sparl                 |                                                   |                                          |
+| SPARQL_ENDPOINT       | e.g., https://query.wikidata.org/sparql           | SPARQL endpoint to query                 |
+| BROKER_TYPE           | AzureServiceBus                                   | Uses the Azure Service Bus (ASB) adapter |
+| BROKER_TOPIC          | <topic-name>                                      | Name of the ASB topic                    |
+| BROKER_ENDPOINT       | e.g. sb://<name-space>.servicebus.windows.net/    | ASB endpoint URL                         |
+| BROKER_NAME           | <name-space>                                      | Namespace provided when setting up ASB   |
+| auth                  |                                                   |                                          |
+| AUTH_MODE             | shared_access_key (default), msal                 | The auth mode to use                     |
+| shared_access_key     |                                                   |                                          |
+| BROKER_CONNECTION_STR | <token>, e.g. Endpoint=...;...SharedAccessKey=... | Connection string including the token    |
+| msal                  |                                                   |                                          |
+| MS_TENANT_ID          | e.g., xxxxx-xxx-xxx-xxx-xxxxx                     | From Azure portal                        |
+| MSAL_CLIENT_ID        | <your_client_id>                                  | Your MSAL client id                      |
+| MSAL_AUTHORITY        | <your_authority_url>                              | Your MSAL authority url                  |
+| MSAL_CLIENT_SECRET    | <your_client_secret>                              | Your MSAL client secret                  |

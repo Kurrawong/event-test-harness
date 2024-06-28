@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Event Consumer Test Harness</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org/dist/htmx.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css"
+    />
+  </head>
+  <body>
+    <section class="section">
+      <div class="container">
+        <h1 class="title">Event Consumer Test Harness</h1>
+        <p class="block">
+          Use the consumer test harness to test reading a message from an event
+          broker topic and pushing it to an rdf delta server.
+        </p>
+        <div>
+          <h2 class="subtitle">Connection Strings</h2>
+          <p>
+            <strong>broker_connection_str</strong>: {{ broker_connection_str }}
+          </p>
+        </div>
+        <form
+          hx-post="/log"
+          hx-target="#messages"
+          hx-indicator="#spinner"
+          class="box"
+        >
+          <div class="field">
+            <label for="broker_endpoint" class="label">Broker Endpoint</label>
+            <div class="control">
+              <input
+                type="text"
+                name="broker_endpoint"
+                value="{{ broker_endpoint }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="broker_topic" class="label">Broker Topic</label>
+            <div class="control">
+              <input
+                type="text"
+                name="broker_topic"
+                value="{{ broker_topic }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="broker_subscription" class="label"
+              >Broker Subscription</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="broker_subscription"
+                value="{{ broker_subscription }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="rdfdelta_endpoint" class="label"
+              >RDF Delta Endpoint</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="rdfdelta_endpoint"
+                value="{{ rdfdelta_endpoint }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <label for="rdfdelta_datasource" class="label"
+              >RDF delta datasource</label
+            >
+            <div class="control">
+              <input
+                type="text"
+                name="rdfdelta_datasource"
+                value="{{ rdfdelta_datasource }}"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button
+                hx-post="/peek"
+                hx-target="#messages"
+                hx-indicator="#spinner"
+                class="button is-info"
+              >
+                Peek pending messages
+              </button>
+              <input
+                type="number"
+                name="peek_messages"
+                value="1"
+                class="input"
+              />
+            </div>
+          </div>
+          <div class="field">
+            <div class="control">
+              <button
+                hx-post="/consume"
+                hx-target="#messages"
+                hx-indicator="#spinner"
+                class="button is-primary"
+              >
+                Consume next message
+              </button>
+            </div>
+          </div>
+          <div class="field is-grouped">
+            <div class="control">
+              <button type="submit" class="button is-primary">
+                Get latest patch log
+              </button>
+            </div>
+          </div>
+        </form>
+        <hr />
+        <h2 class="subtitle">Messages</h2>
+        <div id="spinner"></div>
+        <div id="messages" class="block"></div>
+      </div>
+    </section>
+  </body>
+</html>
