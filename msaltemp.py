@@ -6,9 +6,9 @@ from azure.identity import ClientSecretCredential, InteractiveBrowserCredential
 from azure.servicebus import ServiceBusClient
 from dotenv import load_dotenv
 
-
 load_dotenv()
 client_id = os.environ.get("CLIENT_ID")
+redirect_uri = os.environ.get("REDIRECT_URI")  # must match a redirect uri defined in the app registration
 client_secret = os.environ.get("CLIENT_SECRET")
 tenant_id = os.environ.get("TENANT_ID")
 app_registration_id = os.environ.get("APP_REGISTRATION_ID")
@@ -20,8 +20,14 @@ class AppRoles(Enum):
 
 
 def login():
+    authority = "https://login.microsoftonline.com"
     scopes = "AppRoleAssignment.ReadWrite.All"
-    user_credential = InteractiveBrowserCredential(client_id=client_id)
+    user_credential = InteractiveBrowserCredential(
+        authority=authority,
+        client_id=client_id,
+        redirect_uri=redirect_uri,
+        tenant_id=tenant_id,
+    )
     headers = {"Authorization": f"Bearer {user_credential.get_token(scopes).token}"}
     params = {f"filters": "resourceId eq {app_registration_id}"}
     response = requests.get(
