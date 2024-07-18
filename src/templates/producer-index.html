@@ -17,9 +17,13 @@
   </style>
   <body>
     <h1>Event Producer Test Harness</h1>
-    {% if not authenticated %}
-    <p>You must log in to access this application.</p>
-    <button onclick="window.location.href='{{ auth_uri }}'">
+    {% if not user %}
+    <p>
+      You need to log in to access this application. <br> Additionally you must be
+      assigned the administrative permissions as specified by the
+      <strong>admin_scope</strong> variable
+    </p>
+    <button onclick="window.location.href='/login'">
       Log in with Azure AD
     </button>
     <br />
@@ -32,19 +36,20 @@
       </thead>
       <tbody>
         <tr>
-          <td>admin_app_role_id</td>
-          <td>{{ admin_app_role_id }}</td>
-          <td>The ID of the App role that authorizes use of this application. <br> The logged in User must be assigned this App Role to be authorized to do anything in this application.</td>
-        </tr>
-        <tr>
-          <td>host_domain</td>
-          <td>{{ host_domain }}</td>
-          <td>The fully qualified domain of this web app. eg. https://producer-test-harness.azurewebsites.net <br> Used to construct a redirect URI for the Oauth2 authentication flow.</td>
+          <td>admin_scope</td>
+          <td>{{ admin_scope }}</td>
+          <td>
+            The scope of access for an administrator of this application. <br />
+            as assigned in the App role `value`
+          </td>
         </tr>
       </tbody>
     </table>
     {% else %}
-    <p>Current user: <strong>{{ username }}</strong></p>
+    <p>
+      Current user:
+      <strong>{{ user['id_token_claims']['preferred_username'] }}</strong>
+    </p>
     <hr />
     <h2>Service Bus Connection Test</h2>
     <form hx-post="/sb-msg" hx-target="#messages" hx-indicator="#spinner">
@@ -75,12 +80,18 @@
               <tr>
                 <td>tenant_id</td>
                 <td>{{ tenant_id }}</td>
-                <td>The ID of the azure tenancy in which this application is registered.</td>
+                <td>
+                  The ID of the azure tenancy in which this application is
+                  registered.
+                </td>
               </tr>
               <tr>
                 <td>client_id</td>
                 <td>{{ client_id }}</td>
-                <td>The client ID from the app registration created for this application.</td>
+                <td>
+                  The client ID from the app registration created for this
+                  application.
+                </td>
               </tr>
               <tr>
                 <td>client_secret</td>
