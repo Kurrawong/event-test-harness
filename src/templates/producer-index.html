@@ -22,6 +22,27 @@
     <button onclick="window.location.href='{{ auth_uri }}'">
       Log in with Azure AD
     </button>
+    <br />
+    <br />
+    <table>
+      <thead>
+        <th>Environment setting</th>
+        <th>Value</th>
+        <th>Description</th>
+      </thead>
+      <tbody>
+        <tr>
+          <td>admin_app_role_id</td>
+          <td>{{ admin_app_role_id }}</td>
+          <td>The ID of the App role that authorizes use of this application. <br> The logged in User must be assigned this App Role to be authorized to do anything in this application.</td>
+        </tr>
+        <tr>
+          <td>host_domain</td>
+          <td>{{ host_domain }}</td>
+          <td>The fully qualified domain of this web app. eg. https://producer-test-harness.azurewebsites.net <br> Used to construct a redirect URI for the Oauth2 authentication flow.</td>
+        </tr>
+      </tbody>
+    </table>
     {% else %}
     <p>Current user: <strong>{{ username }}</strong></p>
     <hr />
@@ -42,6 +63,32 @@
           <label for="sb_namespace">Service Bus Namespace</label>
           <input type="text" id="sb_namespace" name="sb_namespace" />
           <span>.servicebus.windows.net</span>
+          <br />
+          <br />
+          <table>
+            <thead>
+              <th>Environment setting</th>
+              <th>Value</th>
+              <th>Description</th>
+            </thead>
+            <tbody>
+              <tr>
+                <td>tenant_id</td>
+                <td>{{ tenant_id }}</td>
+                <td>The ID of the azure tenancy in which this application is registered.</td>
+              </tr>
+              <tr>
+                <td>client_id</td>
+                <td>{{ client_id }}</td>
+                <td>The client ID from the app registration created for this application.</td>
+              </tr>
+              <tr>
+                <td>client_secret</td>
+                <td>{{ client_secret }}</td>
+                <td>The client secret for the app registration</td>
+              </tr>
+            </tbody>
+          </table>
         </group>
         <group id="sb_cs_grp" hidden>
           <label for="sb_conn_str">Connection String</label>
@@ -267,9 +314,7 @@ SELECT * WHERE { ?s ?p ?o } LIMIT 10</textarea
     {% endif %}
   </body>
   <script>
-    htmx.config.responseHandling = [
-        {code: ".*", swap: true}
-    ]
+    htmx.config.responseHandling = [{ code: ".*", swap: true }];
     function setAuthMode() {
       var sb_auth_method = document.getElementById("sb_auth_method");
       var sb_ns_grp = document.getElementById("sb_ns_grp");

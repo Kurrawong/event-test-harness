@@ -31,8 +31,7 @@ client_id = os.environ.get("CLIENT_ID")
 client_secret = os.environ.get("CLIENT_SECRET")
 tenant_id = os.environ.get("TENANT_ID")
 admin_app_role_id = os.environ.get("ADMIN_APP_ROLE_ID")
-service_bus_namespace = os.environ.get("SERVICE_BUS_NAMESPACE")
-host_uri = os.environ.get("HOST_URI")
+host_domain = os.environ.get("HOST_DOMAIN")
 
 # Use MSAL to authenticate the user logging into the application
 msal_app = msal.ConfidentialClientApplication(
@@ -82,7 +81,7 @@ async def get_token() -> str | None:
         result = msal_app.acquire_token_silent(scopes=scopes, account=chosen)
     if not result:
         flow = msal_app.initiate_auth_code_flow(
-            scopes=scopes, redirect_uri=f"{host_uri}/token"
+            scopes=scopes, redirect_uri=f"{host_domain}/token"
         )
         if "error" in flow:
             logging.DEBUG(flow.get("error"))
@@ -181,6 +180,11 @@ async def index(
             "authenticated": authenticated,
             "auth_uri": auth_uri,
             "username": username,
+            "client_id": client_id[:9] + "..." + client_id[-9:],
+            "client_secret": client_secret[:9] + "..." + client_secret[-9:],
+            "tenant_id": tenant_id[:9] + "..." + tenant_id[-9:],
+            "admin_app_role_id": admin_app_role_id,
+            "host_domain": host_domain
         },
     )
 
