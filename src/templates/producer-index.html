@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Event Producer Test Harness</title>
+    <script src="https://cdn.jsdelivr.net/npm/htmx.org/dist/htmx.min.js"></script>
+  </head>
+  <style>
+    .htmx-indicator {
+      opacity: 0;
+      margin: auto;
+    }
+    .htmx-request {
+      opacity: 1;
+    }
+  </style>
+  <body>
+    <h1>Event Producer Test Harness</h1>
+    {% if not authenticated %}
+    <p>You must log in to access this application.</p>
+    <button onclick="window.location.href='{{ auth_uri }}'">
+      Log in with Azure AD
+    </button>
+    {% else %}
+    <p>Current user: <strong>{{ username }}</strong></p>
+    <hr />
+    <h2>Service Bus Connection Test</h2>
+    <form hx-post="/sb-msg" hx-target="#messages" hx-indicator="#spinner">
+      <fieldset>
+        <legend>Connection Settings</legend>
+        <label for="sb_auth_method">Authentication Method</label>
+        <select
+          id="sb_auth_method"
+          name="sb_auth_method"
+          onchange="setAuthMode()"
+        >
+          <option value="1">Azure AD</option>
+          <option value="2">Shared Access Key</option>
+        </select>
+        <group id="sb_ns_grp">
+          <label for="sb_namespace">Service Bus Namespace</label>
+          <input type="text" id="sb_namespace" name="sb_namespace" />
+          <span>.servicebus.windows.net</span>
+        </group>
+        <group id="sb_cs_grp" hidden>
+          <label for="sb_conn_str">Connection String</label>
+          <input type="text" id="sb_conn_str" name="sb_conn_str" />
+        </group>
+      </fieldset>
+      <fieldset>
+        <legend>Message Details</legend>
+        <label for="sb_topic">Topic</label>
+        <input type="text" id="sb_topic" , name="sb_topic" />
+        <label for="msg_subject">Subject</label>
+        <input type="text" id="msg_subject" name="msg_subject" value="rdf" />
+        <label for="msg_body">Body</label>
+        <input
+          type="text"
+          id="msg_body"
+          name="msg_body"
+          value="<a> <b> <c> ."
+        />
+      </fieldset>
+      <button type="submit">Send message</button>
+    </form>
+    <hr />
+    <h2>Fuseki Connection Test</h2>
+    <form hx-post="/query" hx-target="#messages" hx-indicator="#spinner">
+      <fieldset>
+        <legend>Connection settings</legend>
+        <label for="sparql_endpoint">SPARQL endpoint</label>
+        <input type="text" id="sparql_endpoint" name="sparql_endpoint" />
+      </fieldset>
+      <fieldset>
+        <legend>Query settings</legend>
+        <label for="query_str">Query</label>
+        <textarea id="query_str" name="query_str" cols="40" rows="1">
+SELECT * WHERE { ?s ?p ?o } LIMIT 10</textarea
+        >
+      </fieldset>
+      <button type="submit">Submit</button>
+    </form>
+    <hr />
+    <h2>Messages</h2>
+    <section>
+      <span id="messages"></span>
+      <div id="spinner" class="htmx-indicator">
+        <svg
+          width="128"
+          height="128"
+          viewBox="0 0 512 512"
+          style="color: currentColor"
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-full w-full"
+        >
+          <rect
+            width="512"
+            height="512"
+            x="0"
+            y="0"
+            rx="30"
+            fill="transparent"
+            stroke="transparent"
+            stroke-width="0"
+            stroke-opacity="100%"
+            paint-order="stroke"
+          ></rect>
+          <svg
+            width="256px"
+            height="256px"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            x="128"
+            y="128"
+            role="img"
+            style="display: inline-block; vertical-align: middle"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <g fill="currentColor">
+              <g>
+                <circle cx="12" cy="3" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate0"
+                    attributeName="r"
+                    begin="0;svgSpinners12DotsScaleRotate2.end-0.5s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="16.5" cy="4.21" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate1"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate0.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="7.5" cy="4.21" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate2"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate4.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="19.79" cy="7.5" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate3"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate1.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="4.21" cy="7.5" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate4"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate6.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="21" cy="12" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate5"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate3.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="3" cy="12" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate6"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate8.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="19.79" cy="16.5" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate7"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate5.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="4.21" cy="16.5" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate8"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotatea.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="16.5" cy="19.79" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotate9"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate7.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="7.5" cy="19.79" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotatea"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotateb.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <circle cx="12" cy="21" r="1" fill="currentColor">
+                  <animate
+                    id="svgSpinners12DotsScaleRotateb"
+                    attributeName="r"
+                    begin="svgSpinners12DotsScaleRotate9.begin+0.1s"
+                    calcMode="spline"
+                    dur="0.6s"
+                    keySplines=".27,.42,.37,.99;.53,0,.61,.73"
+                    values="1;2;1"
+                  />
+                </circle>
+                <animateTransform
+                  attributeName="transform"
+                  dur="6s"
+                  repeatCount="indefinite"
+                  type="rotate"
+                  values="360 12 12;0 12 12"
+                />
+              </g>
+            </g>
+          </svg>
+        </svg>
+      </div>
+    </section>
+    {% endif %}
+  </body>
+  <script>
+    htmx.config.responseHandling = [
+        {code: ".*", swap: true}
+    ]
+    function setAuthMode() {
+      var sb_auth_method = document.getElementById("sb_auth_method");
+      var sb_ns_grp = document.getElementById("sb_ns_grp");
+      var sb_cs_grp = document.getElementById("sb_cs_grp");
+      if (sb_auth_method.value == 1) {
+        sb_ns_grp.hidden = false;
+        sb_cs_grp.hidden = true;
+      } else if (sb_auth_method.value == 2) {
+        sb_ns_grp.hidden = true;
+        sb_cs_grp.hidden = false;
+      }
+    }
+  </script>
+</html>
