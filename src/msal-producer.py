@@ -29,10 +29,10 @@ app = FastAPI()
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 load_dotenv()
-client_id = os.environ.get("CLIENT_ID")
-client_secret = os.environ.get("CLIENT_SECRET")
-tenant_id = os.environ.get("TENANT_ID")
-admin_scope = os.environ.get("ADMIN_SCOPE")
+client_id = os.environ.get("CLIENT_ID", "")
+client_secret = os.environ.get("CLIENT_SECRET", "")
+tenant_id = os.environ.get("TENANT_ID", "")
+admin_scope = os.environ.get("ADMIN_SCOPE", "")
 
 # Use MSAL to authenticate the user logging into the application
 msal_app = msal.ConfidentialClientApplication(
@@ -131,7 +131,7 @@ async def is_authorized(user: dict, scopes: list[str]) -> bool:
 
 async def get_approle_ids(access_token: str) -> list[str]:
     if not access_token:
-        return None
+        return []
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(
         "https://graph.microsoft.com/v1.0/me/appRoleAssignments",
