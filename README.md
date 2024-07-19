@@ -46,29 +46,3 @@ docker build . -f Dockerfile-consumer -t testharness-consumer
 docker build . -f Dockerfile-rdf-delta-server -t rdf-delta-server
 docker build . -f Dockerfile-rdf-delta-fuseki-server -t rdf-delta-fuseki-server
 ```
-
-## Environment Variables
-
-The following environment variables are required:
-
-- `BROKER_CONNECTION_STR`: (the azure servicebus connection string to use)
-
-The rest of the environment variables are optional and can be set in the UI after starting the application.
-
-| Env variable          | Value                                             | Description                              |
-| --------------------- | ------------------------------------------------- | ---------------------------------------- |
-| sparl                 |                                                   |                                          |
-| SPARQL_ENDPOINT       | e.g., https://query.wikidata.org/sparql           | SPARQL endpoint to query                 |
-| BROKER_TYPE           | AzureServiceBus                                   | Uses the Azure Service Bus (ASB) adapter |
-| BROKER_TOPIC          | <topic-name>                                      | Name of the ASB topic                    |
-| BROKER_ENDPOINT       | e.g. sb://<name-space>.servicebus.windows.net/    | ASB endpoint URL                         |
-| BROKER_NAME           | <name-space>                                      | Namespace provided when setting up ASB   |
-| auth                  |                                                   |                                          |
-| AUTH_MODE             | shared_access_key (default), msal                 | The auth mode to use                     |
-| shared_access_key     |                                                   |                                          |
-| BROKER_CONNECTION_STR | <token>, e.g. Endpoint=...;...SharedAccessKey=... | Connection string including the token    |
-| msal                  |                                                   |                                          |
-| MS_TENANT_ID          | e.g., xxxxx-xxx-xxx-xxx-xxxxx                     | From Azure portal                        |
-| MSAL_CLIENT_ID        | <your_client_id>                                  | Your MSAL client id                      |
-| MSAL_AUTHORITY        | <your_authority_url>                              | Your MSAL authority url                  |
-| MSAL_CLIENT_SECRET    | <your_client_secret>                              | Your MSAL client secret                  |
