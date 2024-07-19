@@ -11,7 +11,8 @@ In the azure portal:
 1. create an app registration.
 2. create a client secret.
 3. create an app role (something like 'admin') and provide a **value** like
-   `EventHarness.ReadWrite.All`
+   `EventHarness.ReadWrite.All` which represents the scope of access for an administrator of the
+   application.
 4. assign the app role to a user.
 
    > Found under enterprise apps > users and groups > add user/group
@@ -19,3 +20,12 @@ In the azure portal:
 5. for your service bus instance, assign the 'Azure Service Bus Data Owner' role to the app registration.
 
    > Found under Service Bus > Access Control (IAM) > Role Assignments.
+
+6. configure the redirect URI's in the application registration. The redirect URI should be the URL
+   of the Event Producer Test Harness plus the /token path. i.e.
+   `https://producertestharness.azurewebsites.net/token`
+
+   > Found under the authentication section of the app registration
+
+This is all the configuration that is needed from the portal. After deploying the producer test
+harness container you will need to provide the details of the app registration as environment variables.
