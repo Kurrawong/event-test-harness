@@ -1,315 +1,251 @@
-import uvicorn
-from fastapi import FastAPI, Form, HTTPException
-from fastapi.responses import HTMLResponse
+import logging
 import os
-from azure.servicebus import ServiceBusClient, ServiceBusMessage
-from msal import ConfidentialClientApplication
-from azure.eventhub import EventHubProducerClient, EventData
+import sys
+import time
+from enum import Enum
+from html import escape
+from pathlib import Path
+from typing import Annotated
+from uuid import uuid4
 
-# from confluent_kafka import Producer
-import json
+import msal
 import requests
-
-# Load environment variables from .env file
+import starlette.status as status
+import uvicorn
+from azure.identity import ClientSecretCredential
+from azure.servicebus import ServiceBusClient, ServiceBusMessage
+from azure.servicebus.exceptions import ServiceBusError
 from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, Form, Security
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.security import SecurityScopes
+from fastapi.templating import Jinja2Templates
+from requests.exceptions import ConnectionError, HTTPError
+from starlette.middleware.sessions import SessionMiddleware
 
-load_dotenv()
-
-
-def get_summary(**kwargs):
-    summary_parts = []
-
-    for var_name, var_value in kwargs.items():
-        if var_value:
-            value_str = str(var_value)
-            formatted_value = f"{value_str[:3]}...{value_str[-3:]}"
-            summary_parts.append(f"{var_name} = {formatted_value}")
-
-    return ", ".join(summary_parts)
-
-
-# Get environment variables
-sparql_endpoint = os.getenv("SPARQL_ENDPOINT")
-sparql_query = "CONSTRUCT WHERE {?s ?p ?o} LIMIT 10"
-sparql_content_type = "text/ttl"
-
-broker_connection_str = os.getenv("BROKER_CONNECTION_STR")
-broker_endpoint = os.getenv("BROKER_ENDPOINT")
-broker_topic = os.getenv("BROKER_TOPIC")
-
-auth_mode = os.getenv("AUTH_MODE", "shared_access_key")
-tenant_id = os.getenv("MS_TENANT_ID")
-client_id = os.getenv("MSAL_CLIENT_ID")
-authority = os.getenv("MSAL_AUTHORITY")
-client_secret = os.getenv("MSAL_CLIENT_SECRET")
-
-summary = f"AUTH_MODE={auth_mode}, " + get_summary(
-    broker_connection_str=broker_connection_str,
-    MS_TENANT_ID=tenant_id,
-    MSAL_CLIENT_ID=client_id,
-    MSAL_AUTHORITY=authority,
-    MSAL_CLIENT_SECRET=client_secret,
-)
+logger = logging.Logger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.addHandler(logging.StreamHandler(sys.stdout))
 
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key="super secret key")
+templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
-form_template = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Event Broker Configuration</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.9.3/css/bulma.min.css">
-</head>
-<body>
-    <section class="section">
-        <h1 class="title">Event Producer Test Harness</h1>
-        <p>
-            Use the test harness to test reading from a SPARQL endpoint and to push a message to an event broker topic.
-        </p>
-        <br />
-        <div class="columns">
-            <form class="container column is-half" action="/data" method="POST">
-                <h2 class="subtitle"><b>SPARQL configuration</b></h2>
-                <hr />
-                <div class="field">
-                    <label class="label">SPARQL endpoint</label>
-                    <div class="control">
-                        <input class="input" type="text" name="sparql_endpoint" value="{sparql_endpoint}" placeholder="Readonly SPARQL endpoint" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">SPARQL content type</label>
-                    <div class="control">
-                        <div class="select">
-                            <select name="sparql_content_type">
-                                <option value="text/turtle" {{ "selected" if sparql_content_type == "text/turtle" else "" }}>Turtle</option>
-                                <option value="application/json" {{ "selected" if sparql_content_type == "application/json" else "" }}>JSON</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">SPARQL query</label>
-                    <div class="control">
-                        <textarea class="textarea" name="sparql_query" placeholder="Enter your SPARQL query">{sparql_query}</textarea>
-                    </div>
-                </div>
-                <div class="field">
-                    <div class="control">
-                        <button class="button is-primary" type="submit">Send Query</button>
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">Query Response</label>
-                    <div class="control">
-                        <textarea style="height:16rem;" class="textarea" readonly>{query_response}</textarea>
-                    </div>
-                </div>
-            </form>
-            <form class="container column is-half" action="/event" method="POST">
-                <h1 class="subtitle" title="{summary}"><b>Event Broker Configuration</b></h1>
-                <hr />
-                <div class="field">
-                    <label class="label">Event Broker Type</label>
-                    <div class="control">
-                        <div class="select">
-                            <select name="broker_type">
-                                <option value="AzureServiceBus" {{ "selected" if broker_type == "AzureServiceBus" else "" }}>Azure Service Bus</option>
-                                <option value="EventHub" {{ "selected" if broker_type == "EventHub" else "" }}>Event Hub</option>
-                                <!-- <option value="Kafka" {{ "selected" if broker_type == "Kafka" else "" }}>Kafka</option> -->
-                            </select>
-                        </div>
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">Event Broker Endpoint</label>
-                    <div class="control">
-                        <input class="input" type="text" name="broker_endpoint" value="{broker_endpoint}" placeholder="Event Broker Endpoint" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">Event Broker Topic</label>
-                    <div class="control">
-                        <input class="input" type="text" name="broker_topic" value="{broker_topic}" placeholder="Event Broker Topic" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">Subject</label>
-                    <div class="control">
-                        <input class="input" type="text" name="subject" placeholder="Enter your subject here" value="{subject}" />
-                    </div>
-                </div>
-                <div class="field">
-                    <label class="label">Message</label>
-                    <div class="control">
-                        <textarea class="textarea" name="message" placeholder="Enter your message here">{message}</textarea>
-                    </div>
-                </div>
-                <div class="field">
-                    <div class="control">
-                        <button class="button is-primary" type="submit">Send Message</button>
-                    </div>
-                </div>
-                <div class="field">
-                    <div class="control">
-                        <textarea class="textarea" readonly>{status_message}</textarea>
-                    </div>
-                </div>
-            </form>
-        </div>
-    </section>
-    <hr />
-    <p>
-        <center>
-            <img style="width: 100px;" src="https://kurrawong.ai/KurrawongAI_350.png" />
-        </center>
-    </p>
-</body>
-</html>
-"""
+load_dotenv()
+client_id = os.environ.get("CLIENT_ID", "")
+client_secret = os.environ.get("CLIENT_SECRET", "")
+tenant_id = os.environ.get("TENANT_ID", "")
+admin_scope = os.environ.get("ADMIN_SCOPE", "")
+
+# Use MSAL to authenticate the user logging into the application
+msal_app = msal.ConfidentialClientApplication(
+    client_id=client_id,
+    authority="https://login.microsoftonline.com/" + tenant_id,
+)
+
+sessions: dict = dict()
+auth_flows: dict = dict()
 
 
-@app.get("/", response_class=HTMLResponse)
-async def show_form():
-    return form_template.format(
-        summary=summary,
-        broker_type="",
-        broker_topic=broker_topic,
-        broker_endpoint=broker_endpoint,
-        status_message="",
-        subject="rdf",
-        message="<a> <b> <c> .",
-        sparql_endpoint=sparql_endpoint,
-        sparql_content_type=sparql_content_type,
-        sparql_query=sparql_query,
-        query_response="",
+class Scopes(Enum):
+    UserRead = "User.Read"
+    EventHarnessAdmin = admin_scope
+
+
+class AuthMethod(Enum):
+    AAD = "1"
+    SAS = "2"
+
+
+async def get_sb_client(
+    auth_method: AuthMethod, namespace: str | None, conn_str: str | None
+) -> ServiceBusClient:
+    if auth_method == AuthMethod.AAD:
+        credential = ClientSecretCredential(
+            tenant_id,
+            client_id,
+            client_secret,
+            scopes=["https://servicebus.azure.net/.default"],
+        )
+        sb_client = ServiceBusClient(
+            fully_qualified_namespace=f"https://{namespace}.servicebus.windows.net",
+            credential=credential,
+        )
+    elif auth_method == AuthMethod.SAS:
+        sb_client = ServiceBusClient.from_connection_string(conn_str=conn_str)
+    else:
+        raise ValueError(f"Invalid authentication method: {auth_method}")
+    return sb_client
+
+
+async def get_user(request: Request) -> dict:
+    session_id = request.session.get("id")
+    if session_id:
+        user = sessions.get(session_id)
+        if user:
+            accounts = msal_app.get_accounts(username=user.get("preferred_username"))
+            if accounts:
+                chosen = accounts[0]
+                result = msal_app.acquire_token_silent(
+                    scopes=[Scopes.UserRead.value], account=chosen
+                )
+                if result:
+                    return user
+    return {}
+
+
+async def is_authorized(
+    request: Request, scopes: SecurityScopes, user: dict = Depends(get_user)
+) -> bool:
+    if not user:
+        return False
+    roles = user["id_token_claims"].get("roles", {})
+    for scope in scopes.scopes:
+        if scope not in roles:
+            return False
+    return True
+
+
+@app.get("/login")
+async def login(request: Request):
+    scopes = [Scopes.UserRead.value]
+    flow = msal_app.initiate_auth_code_flow(
+        scopes=scopes,
+        redirect_uri=str(request.base_url) + "token",
+        response_mode="form_post",
     )
+    if "error" in flow:
+        return JSONResponse(status_code=500, content={"error": flow.get("error")})
+    auth_flows[flow["state"]] = flow
+    return RedirectResponse(flow["auth_uri"])
 
 
-@app.post("/data", response_class=HTMLResponse)
-async def sparql_query_endpoint(
-    sparql_endpoint: str = Form(...),
-    sparql_content_type: str = Form(...),
-    sparql_query: str = Form(...),
+@app.get("/logout")
+async def logout(request: Request, user: dict = Depends(get_user)) -> RedirectResponse:
+    sessions.pop(request.session["id"])
+    request.session.clear()
+    logout_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/logout?post_logout_redirect_uri={request.base_url}"
+    return RedirectResponse(url=logout_url)
+
+
+@app.post("/token", response_class=RedirectResponse)
+async def token(
+    request: Request,
 ):
+    form = await request.form()
+    state = form.get("state")
     try:
-        headers = {
-            "Accept": sparql_content_type,
-            "Content-Type": "application/sparql-query",
-        }
-        response = requests.post(sparql_endpoint, data=sparql_query, headers=headers)
-        response.raise_for_status()
-        query_response = response.text
-    except Exception as e:
-        query_response = f"Error performing SPARQL query: {str(e)}"
-
-    return form_template.format(
-        summary=summary,
-        broker_type="",
-        broker_topic=broker_topic,
-        broker_endpoint=broker_endpoint,
-        status_message="",
-        subject="rdf",
-        message="<a> <b> <c> .",
-        sparql_endpoint=sparql_endpoint,
-        sparql_content_type=sparql_content_type,
-        sparql_query=sparql_query,
-        query_response=query_response,
-    )
+        result = msal_app.acquire_token_by_auth_code_flow(
+            auth_flows.get(state), dict(form)
+        )
+        access_token = result.get("access_token")
+        if not access_token:
+            logger.debug(result.get("error"))
+        else:
+            sessions[state] = result
+            request.session["id"] = state
+    except ValueError as e:
+        logger.debug(e)
+        pass
+    return RedirectResponse("/", status_code=status.HTTP_302_FOUND)
 
 
-@app.post("/event", response_class=HTMLResponse)
-async def submit_form(
-    broker_type: str = Form(...),
-    broker_endpoint: str = Form(...),
-    broker_topic: str = Form(...),
-    subject: str = Form(...),
-    message: str = Form(...),
+@app.get("/")
+async def index(
+    request: Request,
+    user: dict = Depends(get_user),
+    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
 ):
-    status_message = ""  # Initialize status message
-
-    # Depending on the event broker type, handle the message accordingly
-    if broker_type == "AzureServiceBus":
-        try:
-            if auth_mode == "msal":
-                # Connect to Azure Service Bus using MSAL authentication
-                app = ConfidentialClientApplication(
-                    client_id,
-                    authority=f"https://login.microsoftonline.com/{tenant_id}",
-                    client_credential=client_secret,
-                )
-                token_response = app.acquire_token_for_client(
-                    scopes=["https://servicebus.azure.net/.default"]
-                )
-                access_token = token_response["access_token"]
-
-                servicebus_client = ServiceBusClient.from_connection_string(
-                    f"Endpoint={broker_endpoint};SharedAccessSignature=Bearer {access_token}"
-                )
-            elif auth_mode == "shared_access_key":
-                # Connect to Azure Service Bus using Shared Access Key
-                servicebus_client = ServiceBusClient.from_connection_string(
-                    f"{broker_connection_str}"
-                )
-            else:
-                raise ValueError("Invalid auth mode specified")
-
-            # Send message to Azure Service Bus
-            sender = servicebus_client.get_topic_sender(topic_name=broker_topic)
-            sender.send_messages(ServiceBusMessage(subject=subject, body=message))
-            servicebus_client.close()
-
-            status_message = "Message sent successfully to Azure Service Bus"
-        except Exception as e:
-            status_message = f"Error sending message to Azure Service Bus: {str(e)}"
-
-    elif broker_type == "EventHub":
-        try:
-            # Send message to Event Hub using EventHubProducerClient
-            event_hub_client = EventHubProducerClient.from_connection_string(
-                broker_connection_str, eventhub_name=broker_topic
-            )
-            event_data_batch = event_hub_client.create_batch()
-            event_data_batch.add(json.dumps({"message": message}))
-            send_result = event_hub_client.send_batch(event_data_batch)
-            event_hub_client.close()
-
-            if send_result:
-                status_message = "Message sent successfully to Event Hub"
-            else:
-                status_message = "Error sending message to Event Hub"
-        except Exception as e:
-            status_message = f"Error sending message to Event Hub: {str(e)}"
-
-    # elif event_broker_type == "Kafka":
-    #     try:
-    #         # Send message to Kafka
-    #         kafka_producer = Producer({"bootstrap.servers": event_broker_endpoint})
-    #         delivery_report = kafka_producer.produce(event_broker_topic,
-    #                                                  json.dumps({"message": message}).encode("utf-8"))
-    #         kafka_producer.flush()
-    #
-    #         if delivery_report.error() is None:
-    #             status_message = "Message sent successfully to Kafka"
-    #         else:
-    #             status_message = f"Error sending message to Kafka: {delivery_report.error()}"
-    #     except Exception as e:
-    #         status_message = f"Error sending message to Kafka: {str(e)}"
-
-    # Reload the form with the submitted values and status message displayed
-    return form_template.format(
-        summary=summary,
-        broker_type=broker_type,
-        broker_topic=broker_topic,
-        broker_endpoint=broker_endpoint,
-        status_message=status_message,
-        sparql_endpoint=sparql_endpoint,
-        sparql_content_type=sparql_content_type,
-        sparql_query=sparql_query,
-        query_response="",
-        subject=subject,
-        message=message,
+    logger.debug(f"session id: {request.session.get('id')}")
+    return templates.TemplateResponse(
+        "producer-index.html",
+        {
+            "request": request,
+            "user": user,
+            "authorized": authorized,
+            "client_id": client_id[:9] + "..." + client_id[-9:],
+            "client_secret": client_secret[:9] + "..." + client_secret[-9:],
+            "tenant_id": tenant_id[:9] + "..." + tenant_id[-9:],
+            "admin_scope": admin_scope,
+        },
     )
+
+
+@app.post("/sb-msg")
+async def sb_msg(
+    request: Request,
+    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
+    sb_auth_method: AuthMethod = Form(),
+    sb_namespace: str = Form(default=""),
+    sb_conn_str: str = Form(default=""),
+    sb_topic: str = Form(),
+    msg_subject: str = Form(),
+    msg_body: str = Form(),
+):
+    if not authorized:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized")
+    if sb_auth_method == AuthMethod.AAD and not sb_namespace:
+        return HTMLResponse(
+            status_code=400, content="Namespace required for Azure AD authentication"
+        )
+    if sb_auth_method == AuthMethod.SAS and not sb_conn_str:
+        return HTMLResponse(
+            status_code=400,
+            content="Connection string required for Shared Access Key authentication",
+        )
+    sb_client = await get_sb_client(
+        auth_method=sb_auth_method, namespace=sb_namespace, conn_str=sb_conn_str
+    )
+    msg = ServiceBusMessage(subject=msg_subject, body=msg_body)
+    try:
+        sb_topic_sender = sb_client.get_topic_sender(topic_name=sb_topic)
+        sb_topic_sender.send_messages(message=msg)
+        sb_client.close()
+    except (ServiceBusError, ValueError) as e:
+        return JSONResponse(
+            status_code=500, content={"error": str(type(e)), "message": e.args[0]}
+        )
+    return JSONResponse(
+        status_code=200,
+        content={
+            "auth_method": sb_auth_method.name,
+            "topic": sb_topic,
+            "subject": msg_subject,
+            "body": escape(msg_body),
+            "status": "Success",
+        },
+    )
+
+
+@app.post("/query")
+async def query(
+    request: Request,
+    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
+    sparql_endpoint: str = Form(),
+    query_str: str = Form(),
+):
+    if not authorized:
+        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized")
+    try:
+        response = requests.get(
+            sparql_endpoint,
+            params={"query": query_str},
+            headers={"Accept": "application/json"},
+        )
+        response.raise_for_status()
+    except ConnectionError as e:
+        return JSONResponse(
+            status_code=500,
+            content={"error": str(type(e)), "message": str(e.args[0])},
+        )
+    except HTTPError as e:
+        return JSONResponse(
+            status_code=response.status_code,
+            content={"error": str(type(e)), "message": str(e.args[0])},
+        )
+
+    return JSONResponse(status_code=response.status_code, content=response.json())
 
 
 if __name__ == "__main__":

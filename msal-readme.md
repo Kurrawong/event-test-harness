@@ -10,9 +10,12 @@ In the azure portal:
 
 1. create an app registration.
 2. create a client secret.
-3. create an app role (something like 'admin').
-4. assign the app role to users / groups. (under enterprise apps / users and groups > add user/group)
-5. for your service bus namespace assign the 'Azure Service Bus Data Owner' role to the app registration.
+3. create an app role (something like 'admin') and provide a **value** like
+   `EventHarness.ReadWrite.All`
+4. assign the app role to a user.
+
+   > Found under enterprise apps > users and groups > add user/group
+
+5. for your service bus instance, assign the 'Azure Service Bus Data Owner' role to the app registration.
 
    > Found under Service Bus > Access Control (IAM) > Role Assignments.
-

@@ -17,15 +17,23 @@
   </style>
   <body>
     <h1>Event Producer Test Harness</h1>
-    {% if not user %}
+    {% if not authorized %}
     <p>
-      You need to log in to access this application. <br> Additionally you must be
-      assigned the administrative permissions as specified by the
-      <strong>admin_scope</strong> variable
+      You need to log in to access this application. <br />
+      Additionally you must be assigned the administrative permissions as
+      specified by the <strong>admin_scope</strong> variable
     </p>
+    {% if not user %}
     <button onclick="window.location.href='/login'">
       Log in with Azure AD
     </button>
+    {% else %}
+    <p>
+      User: {{ user['id_token_claims']['preferred_username'] }} is not
+      authorized to use this application
+    </p>
+    <span><a href="/logout">Logout</a></span>
+    {% endif %}
     <br />
     <br />
     <table>
@@ -49,6 +57,7 @@
     <p>
       Current user:
       <strong>{{ user['id_token_claims']['preferred_username'] }}</strong>
+      <span><a href="/logout">Logout</a></span>
     </p>
     <hr />
     <h2>Service Bus Connection Test</h2>
@@ -128,7 +137,12 @@
       <fieldset>
         <legend>Connection settings</legend>
         <label for="sparql_endpoint">SPARQL endpoint</label>
-        <input type="text" id="sparql_endpoint" name="sparql_endpoint" />
+        <input
+          type="text"
+          id="sparql_endpoint"
+          name="sparql_endpoint"
+          style="width: 400px"
+        />
       </fieldset>
       <fieldset>
         <legend>Query settings</legend>
