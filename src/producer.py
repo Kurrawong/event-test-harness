@@ -30,7 +30,7 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="super secret key")
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 load_dotenv()
 client_id = os.environ.get("CLIENT_ID", "")
@@ -41,6 +41,7 @@ admin_scope = os.environ.get("ADMIN_SCOPE", "")
 # Use MSAL to authenticate the user logging into the application
 msal_app = msal.ConfidentialClientApplication(
     client_id=client_id,
+    client_credential=client_secret,
     authority="https://login.microsoftonline.com/" + tenant_id,
 )
 
@@ -112,7 +113,7 @@ async def login(request: Request):
     scopes = [Scopes.UserRead.value]
     flow = msal_app.initiate_auth_code_flow(
         scopes=scopes,
-        redirect_uri=str(request.base_url) + "token",
+        redirect_uri="https://" + str(request.base_url.hostname) + "/token",
         response_mode="form_post",
     )
     if "error" in flow:
