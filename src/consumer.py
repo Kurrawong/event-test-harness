@@ -7,7 +7,8 @@ from textwrap import dedent
 from uuid import uuid4
 
 import uvicorn
-from azure.servicebus import ServiceBusClient, ServiceBusMessage, ServiceBusReceiver
+from azure.servicebus import (ServiceBusClient, ServiceBusMessage,
+                              ServiceBusReceiver, TransportType)
 from dotenv import load_dotenv
 from fastapi import FastAPI, Form
 from fastapi.requests import Request
@@ -15,7 +16,6 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from jinja2 import Template
 from rdf_delta import DeltaClient
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -106,7 +106,10 @@ async def peek(
     broker_subscription: str = Form(...),
     peek_messages: int = Form(...),
 ):
-    servicebus_client = ServiceBusClient.from_connection_string(broker_connection_str)
+    servicebus_client = ServiceBusClient.from_connection_string(
+        broker_connection_str,
+        transport_type=TransportType.AmqpOverWebsocket,
+    )
     reciever = servicebus_client.get_subscription_receiver(
         topic_name=broker_topic, subscription_name=broker_subscription
     )
