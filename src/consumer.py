@@ -132,7 +132,9 @@ async def consume(
     rdfdelta_endpoint: str = Form(...),
     rdfdelta_datasource: str = Form(...),
 ):
-    servicebus_client = ServiceBusClient.from_connection_string(broker_connection_str)
+    servicebus_client = ServiceBusClient.from_connection_string(
+        broker_connection_str, transport_type=TransportType.AmqpOverWebsocket
+    )
     reciever = servicebus_client.get_subscription_receiver(
         topic_name=broker_topic, subscription_name=broker_subscription
     )
