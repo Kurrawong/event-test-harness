@@ -20,8 +20,8 @@
     {% if not authorized %}
     <p>
       You need to log in to access this application. <br />
-      Additionally you must be assigned the administrative permissions as
-      specified by the <strong>admin_scope</strong> variable
+      Additionally you must be a member of the group
+      specified by the <strong>group_id</strong> variable
     </p>
     {% if not user %}
     <button onclick="window.location.href='/login'">
@@ -44,11 +44,12 @@
       </thead>
       <tbody>
         <tr>
-          <td>admin_scope</td>
-          <td>{{ admin_scope }}</td>
+          <td>group_id</td>
+          <td>{{ group_id }}</td>
           <td>
-            The scope of access for an administrator of this application. <br />
-            as assigned in the App role `value`
+            The required group assignment. To be authorized to use this
+            application, the signed in user<br />
+            must be a member of this group.
           </td>
         </tr>
       </tbody>
@@ -70,45 +71,13 @@
           name="sb_auth_method"
           onchange="setAuthMode()"
         >
-          <option value="1">Azure AD</option>
+          <option value="1">System Managed Identity</option>
           <option value="2">Shared Access Key</option>
         </select>
         <group id="sb_ns_grp">
           <label for="sb_namespace">Service Bus Namespace</label>
           <input type="text" id="sb_namespace" name="sb_namespace" />
           <span>.servicebus.windows.net</span>
-          <br />
-          <br />
-          <table>
-            <thead>
-              <th>Environment setting</th>
-              <th>Value</th>
-              <th>Description</th>
-            </thead>
-            <tbody>
-              <tr>
-                <td>tenant_id</td>
-                <td>{{ tenant_id }}</td>
-                <td>
-                  The ID of the azure tenancy in which this application is
-                  registered.
-                </td>
-              </tr>
-              <tr>
-                <td>client_id</td>
-                <td>{{ client_id }}</td>
-                <td>
-                  The client ID from the app registration created for this
-                  application.
-                </td>
-              </tr>
-              <tr>
-                <td>client_secret</td>
-                <td>{{ client_secret }}</td>
-                <td>The client secret for the app registration</td>
-              </tr>
-            </tbody>
-          </table>
         </group>
         <group id="sb_cs_grp" hidden>
           <label for="sb_conn_str">Connection String</label>

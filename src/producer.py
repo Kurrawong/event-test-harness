@@ -1,25 +1,21 @@
 import logging
 import os
 import sys
-import time
 from enum import Enum
 from html import escape
 from pathlib import Path
-from typing import Annotated
-from uuid import uuid4
 
 import msal
 import requests
 import starlette.status as status
 import uvicorn
-from azure.identity import ClientSecretCredential
-from azure.servicebus import ServiceBusClient, ServiceBusMessage
+from azure.identity import DefaultAzureCredential
+from azure.servicebus import ServiceBusClient, ServiceBusMessage, TransportType
 from azure.servicebus.exceptions import ServiceBusError
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Form, Security
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.security import SecurityScopes
 from fastapi.templating import Jinja2Templates
 from requests.exceptions import ConnectionError, HTTPError
 from starlette.middleware.sessions import SessionMiddleware
@@ -36,7 +32,7 @@ load_dotenv()
 client_id = os.environ.get("CLIENT_ID", "")
 client_secret = os.environ.get("CLIENT_SECRET", "")
 tenant_id = os.environ.get("TENANT_ID", "")
-admin_scope = os.environ.get("ADMIN_SCOPE", "")
+group_id = os.environ.get("GROUP_ID", "")
 
 # Use MSAL to authenticate the user logging into the application
 msal_app = msal.ConfidentialClientApplication(
@@ -49,32 +45,25 @@ sessions: dict = dict()
 auth_flows: dict = dict()
 
 
-class Scopes(Enum):
-    UserRead = "User.Read"
-    EventHarnessAdmin = admin_scope
-
-
 class AuthMethod(Enum):
-    AAD = "1"
-    SAS = "2"
+    SMI = "1"  # conect using the system managed identity of the web app
+    SAS = "2"  # connect using a shared access key
 
 
 async def get_sb_client(
     auth_method: AuthMethod, namespace: str | None, conn_str: str | None
 ) -> ServiceBusClient:
-    if auth_method == AuthMethod.AAD:
-        credential = ClientSecretCredential(
-            tenant_id,
-            client_id,
-            client_secret,
-            scopes=["https://servicebus.azure.net/.default"],
-        )
+    if auth_method == AuthMethod.SMI:
+        credential = DefaultAzureCredential()
         sb_client = ServiceBusClient(
             fully_qualified_namespace=f"https://{namespace}.servicebus.windows.net",
             credential=credential,
+            transport_type=TransportType.AmqpOverWebsocket,
         )
     elif auth_method == AuthMethod.SAS:
-        sb_client = ServiceBusClient.from_connection_string(conn_str=conn_str)
+        sb_client = ServiceBusClient.from_connection_string(
+            conn_str=conn_str, transport_type=TransportType.AmqpOverWebsocket
+        )
     else:
         raise ValueError(f"Invalid authentication method: {auth_method}")
     return sb_client
@@ -89,31 +78,27 @@ async def get_user(request: Request) -> dict:
             if accounts:
                 chosen = accounts[0]
                 result = msal_app.acquire_token_silent(
-                    scopes=[Scopes.UserRead.value], account=chosen
+                    scopes=["User.Read"], account=chosen
                 )
                 if result:
                     return user
     return {}
 
 
-async def is_authorized(
-    request: Request, scopes: SecurityScopes, user: dict = Depends(get_user)
-) -> bool:
-    if not user:
-        return False
-    roles = user["id_token_claims"].get("roles", {})
-    for scope in scopes.scopes:
-        if scope not in roles:
-            return False
-    return True
+async def is_authorized(request: Request, user: dict = Depends(get_user)) -> bool:
+    if user:
+        groups = user["id_token_claims"].get("groups", [])
+        if group_id in groups:
+            return True
+    return False
 
 
 @app.get("/login")
 async def login(request: Request):
-    scopes = [Scopes.UserRead.value]
+    scopes = ["User.Read"]
     flow = msal_app.initiate_auth_code_flow(
         scopes=scopes,
-        redirect_uri="https://" + str(request.base_url.hostname) + "/token",
+        redirect_uri=str(request.base_url) + "token",
         response_mode="form_post",
     )
     if "error" in flow:
@@ -156,7 +141,7 @@ async def token(
 async def index(
     request: Request,
     user: dict = Depends(get_user),
-    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
+    authorized: bool = Security(is_authorized),
 ):
     logger.debug(f"session id: {request.session.get('id')}")
     return templates.TemplateResponse(
@@ -168,7 +153,7 @@ async def index(
             "client_id": client_id[:9] + "..." + client_id[-9:],
             "client_secret": client_secret[:9] + "..." + client_secret[-9:],
             "tenant_id": tenant_id[:9] + "..." + tenant_id[-9:],
-            "admin_scope": admin_scope,
+            "group_id": group_id,
         },
     )
 
@@ -176,7 +161,7 @@ async def index(
 @app.post("/sb-msg")
 async def sb_msg(
     request: Request,
-    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
+    authorized: bool = Security(is_authorized),
     sb_auth_method: AuthMethod = Form(),
     sb_namespace: str = Form(default=""),
     sb_conn_str: str = Form(default=""),
@@ -185,10 +170,13 @@ async def sb_msg(
     msg_body: str = Form(),
 ):
     if not authorized:
-        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized")
-    if sb_auth_method == AuthMethod.AAD and not sb_namespace:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized"
+        )
+    if sb_auth_method == AuthMethod.SMI and not sb_namespace:
         return HTMLResponse(
-            status_code=400, content="Namespace required for Azure AD authentication"
+            status_code=400,
+            content="Namespace required for authentication with System Managed Identity",
         )
     if sb_auth_method == AuthMethod.SAS and not sb_conn_str:
         return HTMLResponse(
@@ -222,12 +210,14 @@ async def sb_msg(
 @app.post("/query")
 async def query(
     request: Request,
-    authorized: bool = Security(is_authorized, scopes=[Scopes.EventHarnessAdmin.value]),
+    authorized: bool = Security(is_authorized),
     sparql_endpoint: str = Form(),
     query_str: str = Form(),
 ):
     if not authorized:
-        return JSONResponse(status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized")
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED, content="Unauthorized"
+        )
     try:
         response = requests.get(
             sparql_endpoint,
