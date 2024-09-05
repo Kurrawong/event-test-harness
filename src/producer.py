@@ -33,6 +33,7 @@ client_id = os.environ.get("CLIENT_ID", "")
 client_secret = os.environ.get("CLIENT_SECRET", "")
 tenant_id = os.environ.get("TENANT_ID", "")
 group_id = os.environ.get("GROUP_ID", "")
+local_dev = os.environ.get("LOCAL_DEV", "")
 
 # Use MSAL to authenticate the user logging into the application
 msal_app = msal.ConfidentialClientApplication(
@@ -96,9 +97,13 @@ async def is_authorized(request: Request, user: dict = Depends(get_user)) -> boo
 @app.get("/login")
 async def login(request: Request):
     scopes = ["User.Read"]
+    if not local_dev:
+        redirect_uri = str(request.base_url).replace("http", "https") + "token"
+    else:
+        redirect_uri = "http://localhost:8000/token"
     flow = msal_app.initiate_auth_code_flow(
         scopes=scopes,
-        redirect_uri=str(request.base_url) + "token",
+        redirect_uri=redirect_uri,
         response_mode="form_post",
     )
     if "error" in flow:
