@@ -130,6 +130,7 @@ async def token(
         result = msal_app.acquire_token_by_auth_code_flow(
             auth_flows.get(state), dict(form)
         )
+        logger.debug(__import__('pprint').pprint(result.get("id_token_claims", {})))
         access_token = result.get("access_token")
         if not access_token:
             logger.debug(result.get("error"))
